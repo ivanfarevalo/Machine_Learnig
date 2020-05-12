@@ -12,6 +12,7 @@ class Gaussian:
         self.eigenvalues = eigenvalues
         self.eigenvectors = eigenvectors
         self.data = None
+        self.prior = None
 
     def get_covariance(self):
         self.covariance = self.eigenvectors @ self.eigenvalues @ self.eigenvectors.T
@@ -27,7 +28,8 @@ class Gaussian:
 def generate_samples(num_samples, seed0=None, seed1A=None, seed1B=None):
     # Class 0
     class_0 = Gaussian()
-    class_0.mean = 1*np.array([1, -1])
+    class_0.prior = 1 / 2
+    class_0.mean = 1*np.array([1, -1])  # Multiply mean by coefficient to space out gaussian mixtures
     class_0.eigenvectors = np.eye(2)
     class_0.eigenvalues = np.array([[1, 0], [0, 4]])
     class_0.generate_data(num_samples, seed0)
@@ -36,21 +38,21 @@ def generate_samples(num_samples, seed0=None, seed1A=None, seed1B=None):
     class_1A = Gaussian()
     class_1A.prior = 2 / 3
     class_1A.theta = -3 * np.pi / 4
-    class_1A.mean = np.array([-1, 0])
+    class_1A.mean = 1*np.array([-1, 0])  # Multiply mean by coefficient to space out gaussian mixtures
     class_1A.eigenvectors = np.array([[math.cos(class_1A.theta), -1 * math.sin(class_1A.theta)],
                                       [math.sin(class_1A.theta), math.cos(class_1A.theta)]])
     class_1A.eigenvalues = np.array([[4, 0], [0, 0.5]])
-    class_1A.get_covariance()
+    class_1A.generate_data(num_samples, seed1A)
 
     # Class 1B
     class_1B = Gaussian()
     class_1B.prior = 1 / 3
     class_1B.theta = np.pi / 4
-    class_1B.mean = np.array([4, 1])
+    class_1B.mean = np.array([4, 1])  # Multiply mean by coefficient to space out gaussian mixtures
     class_1B.eigenvectors = np.array([[math.cos(class_1B.theta), -1 * math.sin(class_1B.theta)],
                                       [math.sin(class_1B.theta), math.cos(class_1B.theta)]])
     class_1B.eigenvalues = np.array([[1, 0], [0, 4]])
-    class_1B.get_covariance()
+    class_1B.generate_data(num_samples, seed1B)
 
     # Class 1
     np.random.seed(seed1A + seed1B)
@@ -58,14 +60,26 @@ def generate_samples(num_samples, seed0=None, seed1A=None, seed1B=None):
     class_1 = np.zeros([num_samples, 2])
     for i in range(num_samples):
         if prior[i] > class_1B.prior:
-            class_1A.generate_data(1, seed1A+i)
-            class_1[i, :] = class_1A.data
+            class_1[i, :] = class_1A.data[i, :]
         else:
-            class_1B.generate_data(1, seed1B+i)
-            class_1[i, :] = class_1B.data
+            class_1[i, :] = class_1B.data[i, :]
 
     # Return Samples
     return class_0, class_1, class_1A, class_1B
+
+
+def generate_d_dim_samples(dim, num_samples, seed=None, best_seeds=None):
+    probability_distribution = np.array([2/3, 1/6, 1/6])
+    samples = []
+    if best_seeds is None:
+        np.random.seed(seed)
+        seeds = np.random.randint(1, 2000, num_samples)
+    else:
+        seeds = best_seeds
+    for i in range(num_samples):
+        np.random.seed(seeds[i])
+        samples.append(np.random.choice(np.array([0, 1, -1]), dim, p=probability_distribution))
+    return samples
 
 
 if __name__ == '__main__':
