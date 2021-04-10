@@ -108,7 +108,8 @@ class Expectation_Maximization():
 
 def find_quasi_orthogonal_basis(dim, num_basis, from_memory=False):
     if from_memory:
-        return sample_generation.generate_d_dim_samples(dim, num_basis, best_seeds=[3770, 350, 86, 861, 5616, 2738])
+        # return sample_generation.generate_d_dim_samples(dim, num_basis, best_seeds=[3770, 350, 86, 861, 5616, 2738])
+        return sample_generation.generate_d_dim_samples(dim, num_basis, best_seeds=np.load('best_seeds.npy'))
     else:
         cost_list = []
         best_seeds = [3770]
@@ -120,26 +121,54 @@ def find_quasi_orthogonal_basis(dim, num_basis, from_memory=False):
                 normalized_vectors = q_orthoganal_vectors / np.linalg.norm(q_orthoganal_vectors, axis=1).reshape([-1, 1])
                 check_orthogonality = normalized_vectors.dot(normalized_vectors.T)
                 cost = np.sum(abs(check_orthogonality - np.diag(check_orthogonality.diagonal())))
-                if np.count_nonzero(q_orthoganal_vectors[j-1]) in range(8, 13):
+                if np.count_nonzero(q_orthoganal_vectors[j-1]) in range((dim//3) - (dim//3)//4, (dim//3) + (dim//3)//4):
                     cost_list.append(cost)
                 else:
                     cost_list.append(100)
             print("Best cost: {}\nBest seed: {}\n".format(min(cost_list), cost_list.index(min(cost_list))))
             best_seeds.append(cost_list.index(min(cost_list)))
             cost_list.clear()
+        np.save('best_seeds.npy', best_seeds)
         return sample_generation.generate_d_dim_samples(dim, num_basis, best_seeds=best_seeds)
 
 
-def generate_d_dim_data(basis, num_samples=50):
+def generate_d_dim_data(basis, num_samples=50, seperate_noise = False):
     #  Create component coefficients V1, V2, component choice, and Noise vectors
-    np.random.seed(785)
+    np.random.seed(785)  #785
     v1 = np.random.normal(size=num_samples)
-    np.random.seed(3589)
+    np.random.seed(3589)  #3589
     v2 = np.random.normal(size=num_samples)
-    random_state = np.random.RandomState(13489)
+    random_state = np.random.RandomState(13489)   # 13489
     noise = random_state.multivariate_normal(np.zeros(len(basis[0])), 0.01*np.eye(len(basis[0])), num_samples)
-    np.random.seed(89)
+    # np.random.seed(89)   #89
     choice = np.random.choice([1,2,3], p=[1/3, 1/3, 1/3], size=num_samples)
+    samples = np.zeros([num_samples, len(basis[0])])
+    one_hot_labels = np.zeros([num_samples, 3])
+    for i in range(num_samples):
+        if choice[i] == 1:
+            samples[i, :] = basis[0] + v1[i]*basis[1] + v2[i]*basis[2]
+            one_hot_labels[i, :] = np.array([1, 0, 0])
+        elif choice[i] == 2:
+            samples[i, :] = 2*basis[3] + math.sqrt(2)*v1[i]*basis[4] + v2[i]*basis[5]
+            one_hot_labels[i, :] = np.array([0, 1, 0])
+        else:
+            samples[i, :] = math.sqrt(2)*basis[5] + v1[i]*(basis[0] + basis[1]) + 1/math.sqrt(2)*v2[i]*basis[4]
+            one_hot_labels[i, :] = np.array([0, 0, 1])
+    if seperate_noise:
+        return samples, one_hot_labels, noise
+    else:
+        return samples + noise, one_hot_labels
+
+def generate_d_dim_data2(basis, num_samples=50):
+    #  Create component coefficients V1, V2, component choice, and Noise vectors
+    np.random.seed(785)  #785
+    v1 = np.random.normal(size=num_samples)
+    np.random.seed(3589)  #3589
+    v2 = np.random.normal(size=num_samples)
+    random_state = np.random.RandomState(13489)   # 13489
+    noise = random_state.multivariate_normal(np.zeros(len(basis[0])), 0.01*np.eye(len(basis[0])), num_samples)
+    # np.random.seed(89)   #89
+    choice = np.random.choice([+1, -1], p=[1/2, 1/2], size=num_samples)
     samples = np.zeros([num_samples, len(basis[0])])
     one_hot_labels = np.zeros([num_samples, 3])
     for i in range(num_samples):
@@ -162,16 +191,19 @@ def run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(1, 10), num_t
         fig = plt.figure()
         distortions = [k_means.distortion for k_means in k_means_list]
         plt.plot(rangeK, distortions, 'ro')
+        plt.title("Distortion as a function of K")
         plt.xlabel("Number of clusters")
         plt.ylabel("Distortion")
 
         # Plot the ratio as a function of K.
         fig2 = plt.figure()
         distortion_ratios = [k_means_list[i + 1].distortion / k_means_list[i].distortion for i in range(len(k_means_list) - 1)]
-        plt.plot(distortion_ratios, 'bo')
-        plt.xlabel("Number of clusters")
-        plt.ylabel("Distortion Ratio (K_i+1)/(K_i)")
-        # plt.show()
+        x_labels = ["K={}/K={}".format(i+1, i) for i in rangeK[:len(rangeK)-1]]
+        plt.plot(x_labels, distortion_ratios, 'bo')
+        plt.title("Rate of distortion change")
+        plt.xlabel("Ratio of K = i+1 / K = i")
+        plt.ylabel("Distortion change")
+        plt.show()
 
     # K-means Algorithm
     jth_k_mean = 0
@@ -228,7 +260,7 @@ def run_EM_algorithm(kmeans_tests, one_hot_labels,  plot_tables=False, epsilon=0
     probability_matrix = []
     for kmeans_test in kmeans_tests:
         mixture_estimation = Expectation_Maximization(kmeans_test)
-        while mixture_estimation.num_iterations < 200:
+        while mixture_estimation.num_iterations < 300:
             mixture_estimation.update_posterior_probabilities()
             mixture_estimation.update_priors()
             mixture_estimation.update_mixture_means()
@@ -259,10 +291,11 @@ def run_EM_algorithm(kmeans_tests, one_hot_labels,  plot_tables=False, epsilon=0
     # Plot empirical probability tables
     if plot_tables: plot_probability_tables(probability_matrix)  # Generates plot figures
     for i in range(len(probability_matrix)): print("{}K = {}\n{}\n".format((2 * i + 2) * "    ", i + 2, probability_matrix[i]))
+    return gaussian_mixture_list
 
 
 def generate_2D_test_data(num_samples=200, plot_data=False):
-    seed1, seed2, seed3 = 14, 8, 1228  # Seed for each class
+    seed1, seed2, seed3 = 14, 8, 1228 # Seed for each class  14, 8, 1228
     class_1, _, class_2, class_3 = sample_generation.generate_samples(num_samples, seed0=seed1, seed1A=seed2, seed1B=seed3)
     class_1.prior, class_2.prior, class_3.prior = 1/2, 1/6, 1/3
 
@@ -290,13 +323,19 @@ def generate_2D_test_data(num_samples=200, plot_data=False):
         plt.plot(class_3.data[np.equal(class_3.data, samples)[:, 0], 0],
                  class_3.data[np.equal(class_3.data, samples)[:, 1], 1], 'g.')
         plt.axis('equal')
-        plt.legend(['Class 1', 'Class 2', 'Class 3'])
+        plt.legend(['Component 1', 'Component 2', 'Component 3'])
+        plt.title('Generated 2D samples')
+        plt.xlabel('dim 1')
+        plt.ylabel('dim 2')
 
         plt.figure(2)
         plt.plot(samples[:, 0], samples[:, 1], 'k.')
         plt.axis('equal')
         plt.legend(['Samples'])
-        # plt.show()
+        plt.title('Generated 2D samples')
+        plt.xlabel('dim 1')
+        plt.ylabel('dim 2')
+        plt.show()
     return samples, one_hot_labels
 
 
@@ -306,7 +345,7 @@ def plot_probability_tables(probability_matrix):
         columns = np.arange(1, probability_matrix[i].shape[1] + 1)
         rows = np.arange(1, probability_matrix[i].shape[0] + 1)
         cell_data = probability_matrix[i]
-        normal = plt.Normalize(cell_data.min() - 0.3, cell_data.max() + 0.3)
+        normal = plt.Normalize(cell_data.min() - 0.3, cell_data.max() + 0.3)  # 0.3 works well
         colors = plt.cm.coolwarm(normal(cell_data))
 
         F = plt.figure(figsize=(15, 8))
@@ -317,33 +356,44 @@ def plot_probability_tables(probability_matrix):
         plt.ylabel("l")
         the_table = ax.table(cellText=cell_data, colWidths=[0.2] * columns.size,
                              colLabels=columns, rowLabels=rows, loc='center', cellColours=colors)
-    # plt.show()
+    plt.show()
+
+
+def get_geometric_insight(test, basis):
+    normalized_basis = basis / np.linalg.norm(basis, axis=1).reshape([-1, 1])
+    mean_correlation = []
+    for i in range(len(test)):
+        normalized_means = test[i].mixture_means / np.linalg.norm(test[i].mixture_means, axis=1).reshape([-1, 1])
+        # normalized_means = np.array(test[i])
+        mean_cross_correlation = normalized_basis.dot(normalized_means.T)
+        # mean_cross_correlation = normalized_means.dot(normalized_basis.T)
+        # mean_cross_correlation = np.matmul(normalized_basis, normalized_means)
+        mean_correlation.append(mean_cross_correlation)
+    plot_probability_tables(mean_correlation)
 
 
 if __name__ == '__main__':
 
-    # Generate 2D test samples
-    samples, one_hot_labels = generate_2D_test_data(num_samples=200, plot_data=False)
-    # Run Kmeans algorithm
-    run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(2, 10), plot_tables=True)  # Can only plot for K > 1
-    # Run Kmeans++ algorithm
-    run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(2, 10), k_means_plusplus=True, plot_tables=False)
-    # Show plots and tables.
-    plt.show()
-
-    # Run Expectation Maximization algorithm on 2D test samples
-    kmeans_tests = run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(3, 4), k_means_plusplus=True, plot_tables=False)
-    run_EM_algorithm(kmeans_tests, one_hot_labels, plot_tables=True)
-    plt.show()
+    # # Generate 2D test samples
+    # samples, one_hot_labels = generate_2D_test_data(num_samples=250, plot_data=False)
+    # # Run Kmeans algorithm
+    # run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(2, 10), plot_tables=True)  # Can only plot for K > 1
+    # # Run Kmeans++ algorithm
+    # run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(2, 6), k_means_plusplus=False, plot_tables=True)
+    #
+    # # Run Expectation Maximization algorithm on 2D test samples
+    # kmeans_tests = run_Kmeans_algorithm(samples, one_hot_labels, rangeK=np.arange(2, 6), k_means_plusplus=True, plot_tables=False)
+    # run_EM_algorithm(kmeans_tests, one_hot_labels, plot_tables=True)
 
     # Generate quasi-orthogonal basis
-    q_orthoganal_basis = find_quasi_orthogonal_basis(dim=30, num_basis=6, from_memory=True)
+    q_orthoganal_basis = find_quasi_orthogonal_basis(dim=100, num_basis=6, from_memory=True)
     # Generate D-dim samples from basis
-    d_dim_samples, one_hot_labels = generate_d_dim_data(q_orthoganal_basis, num_samples=250)
+    d_dim_samples, one_hot_labels = generate_d_dim_data(q_orthoganal_basis, num_samples=350)
 
     # Run K-Means algorithm with K_means++ initialization
-    d_dim_kmeans_tests = run_Kmeans_algorithm(d_dim_samples, one_hot_labels, rangeK=np.arange(3, 4), k_means_plusplus=True, plot_tables=False)
-    # Run EM algorithm to estimate gaussian mixture parameters
-    run_EM_algorithm(d_dim_kmeans_tests, one_hot_labels, plot_tables=True, epsilon=0.001)
-    # Show plots and tables.
-    plt.show()
+    d_dim_kmeans_tests = run_Kmeans_algorithm(d_dim_samples, one_hot_labels, rangeK=np.arange(2, 6), k_means_plusplus=True, plot_tables=False)
+    get_geometric_insight(d_dim_kmeans_tests, q_orthoganal_basis)
+
+    # # Run EM algorithm to estimate gaussian mixture parameters
+    # d_dim_EM_tests = run_EM_algorithm(d_dim_kmeans_tests, one_hot_labels, plot_tables=False, epsilon=0.001)
+    # get_geometric_insight(d_dim_EM_tests, q_orthoganal_basis)
