@@ -11,11 +11,11 @@ from root folder: \
 [Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/Model_and_data_based_classification/Ivan_Arevalo_HW1.pdf)
 
 2. **Neural_Network_classification/fully_connected_NN.py:** Classification of synthetic 2D-gaussian-mixture samples with neural networks. \
-[Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/Model_and_data_based_classification/ECE283_report.pdf)
+[Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/Neural_Network_Classification/ECE283_report.pdf)
 
 3. **Unsupervised_Learning/unsupervised_learning.py:** Compare unsupervised learning methods such as KMeans, Gaussian mixtures and the EM algorithms. \
-[Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/Model_and_data_based_classification/ECE283_Hw3_Report.pdf)
+[Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/Unsupervised_Learning/ECE283_Hw3_Report.pdf)
 
 4. **PCA_and_Compressive_Sensing/sparisity.py:** Study sparsity (PCA and Compressive Sensing). \
-[Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/Model_and_data_based_classification/ECE283_Report.pdf)
+[Link to report](https://github.com/ivanfarevalo/Machine_Learnig/blob/master/PCA_and_Compressive_Sensing/ECE283_Report.pdf)
 
